@@ -1,180 +1,183 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount } from 'svelte'
 
-	let running = false;
-	let prep = false;
-	let targetVisible = false;
-	let message = 'Нажми "Старт" чтобы начать';
-	let lastTime: number | null = null;
-	let times: number[] = [];
-	let roundsDone = 0;
+	let running = false
+	let prep = false
+	let targetVisible = false
+	let message = 'Нажми "Старт" чтобы начать'
+	let lastTime: number | null = null
+	let times: number[] = []
+	let roundsDone = 0
 
-	// Settings (persisted)
-	let rounds: number = 10;
-	let minDelay: number = 1000;
-	let maxDelay: number = 3000;
-	let autoRestart = false;
-	let useSpace = false;
+	let rounds: number = 10
+	let minDelay: number = 1000
+	let maxDelay: number = 3000
+	let autoRestart = false
+	let useSpace = false
 
-	let timerId: number | null = null;
-	let shownAt: number | null = null;
-	let prepFlag = false;
-	let clicked = false;
+	let timerId: number | null = null
+	let shownAt: number | null = null
+	let prepFlag = false
+	let clicked = false
 
-	// load persisted settings & times
 	onMount(() => {
-		const vRounds = localStorage.getItem('rt_rounds');
-		if (vRounds) rounds = Number(vRounds);
-		const vMin = localStorage.getItem('rt_minDelay');
-		if (vMin) minDelay = Number(vMin);
-		const vMax = localStorage.getItem('rt_maxDelay');
-		if (vMax) maxDelay = Number(vMax);
-		const vAuto = localStorage.getItem('rt_auto');
-		if (vAuto) autoRestart = vAuto === '1';
-		const vSpace = localStorage.getItem('rt_space');
-		if (vSpace) useSpace = vSpace === '1';
+		const vRounds = localStorage.getItem('rt_rounds')
+		if (vRounds) rounds = Number(vRounds)
+		const vMin = localStorage.getItem('rt_minDelay')
+		if (vMin) minDelay = Number(vMin)
+		const vMax = localStorage.getItem('rt_maxDelay')
+		if (vMax) maxDelay = Number(vMax)
+		const vAuto = localStorage.getItem('rt_auto')
+		if (vAuto) autoRestart = vAuto === '1'
+		const vSpace = localStorage.getItem('rt_space')
+		if (vSpace) useSpace = vSpace === '1'
 
-		const vTimes = localStorage.getItem('rt_times');
+		const vTimes = localStorage.getItem('rt_times')
 		if (vTimes) {
 			try {
-				times = JSON.parse(vTimes);
+				times = JSON.parse(vTimes)
 			} catch (e) {
-				times = [];
+				times = []
 			}
 		}
 
 		function onKey(e: KeyboardEvent) {
 			if (useSpace && e.code === 'Space') {
-				e.preventDefault();
-				handleClick();
+				e.preventDefault()
+				handleClick()
 			}
 		}
 
-		window.addEventListener('keydown', onKey);
+		window.addEventListener('keydown', onKey)
 
 		return () => {
-			window.removeEventListener('keydown', onKey);
-			if (timerId) window.clearTimeout(timerId);
-		};
-	});
+			window.removeEventListener('keydown', onKey)
+			if (timerId) window.clearTimeout(timerId)
+		}
+	})
 
-	$: localStorage.setItem('rt_rounds', String(rounds));
-	$: localStorage.setItem('rt_minDelay', String(minDelay));
-	$: localStorage.setItem('rt_maxDelay', String(maxDelay));
-	$: localStorage.setItem('rt_auto', autoRestart ? '1' : '0');
-	$: localStorage.setItem('rt_space', useSpace ? '1' : '0');
+	$: localStorage.setItem('rt_rounds', String(rounds))
+	$: localStorage.setItem('rt_minDelay', String(minDelay))
+	$: localStorage.setItem('rt_maxDelay', String(maxDelay))
+	$: localStorage.setItem('rt_auto', autoRestart ? '1' : '0')
+	$: localStorage.setItem('rt_space', useSpace ? '1' : '0')
+
+	$: showStart = !running
+	$: showStop = running
+	$: showNext = !running && roundsDone < rounds
 
 	function randomDelay() {
-		const min = Math.max(0, Number(minDelay));
-		const max = Math.max(min, Number(maxDelay));
-		return Math.floor(Math.random() * (max - min + 1)) + min;
+		const min = Math.max(0, Number(minDelay))
+		const max = Math.max(min, Number(maxDelay))
+		return Math.floor(Math.random() * (max - min + 1)) + min
 	}
 
 	function startRound() {
-		message = 'Жди...';
-		prep = true;
-		prepFlag = true;
-		targetVisible = false;
-		const delay = randomDelay();
+		message = 'Жди...'
+		prep = true
+		prepFlag = true
+		targetVisible = false
+		const delay = randomDelay()
 		timerId = window.setTimeout(() => {
-			prepFlag = false;
-			shownAt = performance.now();
-			targetVisible = true;
-			message = 'КЛИК!';
-		}, delay);
+			prepFlag = false
+			shownAt = performance.now()
+			targetVisible = true
+			message = 'КЛИК!'
+		}, delay)
 	}
 
 	function stopAll() {
 		if (timerId) {
-			window.clearTimeout(timerId);
-			timerId = null;
+			window.clearTimeout(timerId)
+			timerId = null
 		}
-		running = false;
-		prep = false;
-		targetVisible = false;
-		message = 'Остановлено';
+		running = false
+		prep = false
+		targetVisible = false
+		message = 'Остановлено'
 	}
 
 	function handleStart() {
-		times = [];
-		roundsDone = 0;
-		lastTime = null;
-		running = true;
-		message = 'Готов...';
+		times = []
+		roundsDone = 0
+		lastTime = null
+		running = true
+		message = 'Готов...'
+		setTimeout(() => startRound(), 200)
+	}
 
-		// small timeout so UI updates
-		setTimeout(() => startRound(), 200);
+	function handleNext() {
+		startRound()
+		running = true
 	}
 
 	function handleClick() {
-		// visual feedback
-		clicked = true;
-		setTimeout(() => (clicked = false), 120);
+		clicked = true
+		setTimeout(() => (clicked = false), 120)
 
-		if (!running) return;
+		if (!running) return
 
-		const now = performance.now();
+		const now = performance.now()
 
 		if (prepFlag && !targetVisible) {
-			message = 'Ранний клик! Попробуй ещё раз.';
-			prep = false;
-			prepFlag = false;
+			message = 'Ранний клик! Попробуй ещё раз.'
+			prep = false
+			prepFlag = false
 			if (timerId) {
-				window.clearTimeout(timerId);
-				timerId = null;
+				window.clearTimeout(timerId)
+				timerId = null
 			}
-			const penalty = 800;
-			recordTime(penalty);
-			scheduleNextOrStop();
-			return;
+			const penalty = 800
+			recordTime(penalty)
+			scheduleNextOrStop()
+			return
 		}
 
 		if (targetVisible && shownAt) {
-			const delta = Math.max(0, Math.round(now - shownAt));
-			recordTime(delta);
-			targetVisible = false;
-			shownAt = null;
-			scheduleNextOrStop();
-			return;
+			const delta = Math.max(0, Math.round(now - shownAt))
+			recordTime(delta)
+			targetVisible = false
+			shownAt = null
+			scheduleNextOrStop()
+			return
 		}
 	}
 
 	function recordTime(ms: number) {
-		lastTime = ms;
-		times = [...times, ms];
-		localStorage.setItem('rt_times', JSON.stringify(times));
-		roundsDone = roundsDone + 1;
-		message = `Результат: ${ms} мс`;
+		lastTime = ms
+		times = [...times, ms]
+		localStorage.setItem('rt_times', JSON.stringify(times))
+		roundsDone = roundsDone + 1
+		message = `Результат: ${ms} мс`
 	}
 
 	function scheduleNextOrStop() {
 		if (roundsDone >= rounds) {
-			running = false;
-			message = 'Серия завершена';
-			prep = false;
-			prepFlag = false;
-			targetVisible = false;
+			running = false
+			message = 'Серия завершена'
+			prep = false
+			prepFlag = false
+			targetVisible = false
 		} else if (autoRestart) {
-			setTimeout(() => startRound(), 700);
+			setTimeout(() => startRound(), 700)
 		} else {
-			message = 'Нажми "Далее" чтобы продолжить';
-			prep = false;
-			prepFlag = false;
+			message = 'Нажми "Далее" чтобы продолжить'
+			prep = false
+			prepFlag = false
 		}
 	}
 
 	function resetAll() {
-		stopAll();
-		times = [];
-		lastTime = null;
-		roundsDone = 0;
-		message = 'Сброшено';
-		localStorage.removeItem('rt_times');
+		stopAll()
+		times = []
+		lastTime = null
+		roundsDone = 0
+		message = 'Сброшено'
+		localStorage.removeItem('rt_times')
 	}
 
-	const best = () => (times.length ? Math.min(...times) : null);
-	const avg = () =>
-		times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : null;
+	const best = () => (times.length ? Math.min(...times) : null)
+	const avg = () => times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : null
 </script>
 
 <div class="mx-auto max-w-3xl p-6">
@@ -202,26 +205,24 @@
 			</div>
 
 			<div class="mt-3 flex gap-2">
-				{#if !running}
+				{#if showStart}
 					<button class="rounded bg-blue-600 px-3 py-2 text-white" on:click={handleStart}>
 						Старт
 					</button>
 				{/if}
-				{#if running}
-					<button class="rounded bg-red-600 px-3 py-2 text-white" on:click={stopAll}> Стоп </button>
+				{#if showStop}
+					<button class="rounded bg-red-600 px-3 py-2 text-white" on:click={stopAll}>
+						Стоп
+					</button>
 				{/if}
-				{#if !running}
-					<button
-						class="rounded bg-green-600 px-3 py-2 text-white"
-						on:click={() => {
-							startRound();
-							running = true;
-						}}
-					>
+				{#if showNext}
+					<button class="rounded bg-green-600 px-3 py-2 text-white" on:click={handleNext}>
 						Далее
 					</button>
 				{/if}
-				<button class="rounded bg-gray-300 px-3 py-2" on:click={resetAll}> Сброс </button>
+				<button class="rounded bg-gray-300 px-3 py-2" on:click={resetAll}>
+					Сброс
+				</button>
 			</div>
 		</div>
 
@@ -288,9 +289,9 @@
 
 <style>
 	.reaction-area {
-		transition: transform 0.12s ease;
+		transition: transform 0.12s ease
 	}
 	.reaction-area.active {
-		transform: scale(1.03);
+		transform: scale(1.03)
 	}
 </style>
