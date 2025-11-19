@@ -19,9 +19,13 @@
 	const timerRef: { current: number | null } = { current: null };
 	const shownAtRef: { current: number | null } = { current: null };
 	const prepRef: { current: boolean } = { current: false };
+	let clicked = false
 
 	// load persisted settings & times
-	onMount(() => {
+		// visual feedback for click
+		clicked = true
+		setTimeout(() => (clicked = false), 120)
+
 		const vRounds = localStorage.getItem('rt_rounds');
 		if (vRounds) rounds = Number(vRounds);
 		const vMin = localStorage.getItem('rt_minDelay');
