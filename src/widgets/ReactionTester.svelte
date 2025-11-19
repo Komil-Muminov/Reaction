@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 
 	let running = false;
 	let prep = false;
@@ -16,16 +16,13 @@
 	let autoRestart = false;
 	let useSpace = false;
 
-	const timerRef: { current: number | null } = { current: null };
-	const shownAtRef: { current: number | null } = { current: null };
-	const prepRef: { current: boolean } = { current: false };
-	let clicked = false
+	let timerId: number | null = null;
+	let shownAt: number | null = null;
+	let prepFlag = false;
+	let clicked = false;
 
 	// load persisted settings & times
-		// visual feedback for click
-		clicked = true
-		setTimeout(() => (clicked = false), 120)
-
+	onMount(() => {
 		const vRounds = localStorage.getItem('rt_rounds');
 		if (vRounds) rounds = Number(vRounds);
 		const vMin = localStorage.getItem('rt_minDelay');
@@ -54,10 +51,11 @@
 		}
 
 		window.addEventListener('keydown', onKey);
-		onDestroy(() => {
+
+		return () => {
 			window.removeEventListener('keydown', onKey);
-			if (timerRef.current) window.clearTimeout(timerRef.current);
-		});
+			if (timerId) window.clearTimeout(timerId);
+		};
 	});
 
 	$: localStorage.setItem('rt_rounds', String(rounds));
@@ -75,21 +73,21 @@
 	function startRound() {
 		message = 'Жди...';
 		prep = true;
-		prepRef.current = true;
+		prepFlag = true;
 		targetVisible = false;
 		const delay = randomDelay();
-		timerRef.current = window.setTimeout(() => {
-			prepRef.current = false;
-			shownAtRef.current = performance.now();
+		timerId = window.setTimeout(() => {
+			prepFlag = false;
+			shownAt = performance.now();
 			targetVisible = true;
 			message = 'КЛИК!';
 		}, delay);
 	}
 
 	function stopAll() {
-		if (timerRef.current) {
-			window.clearTimeout(timerRef.current);
-			timerRef.current = null;
+		if (timerId) {
+			window.clearTimeout(timerId);
+			timerId = null;
 		}
 		running = false;
 		prep = false;
@@ -109,17 +107,21 @@
 	}
 
 	function handleClick() {
+		// visual feedback
+		clicked = true;
+		setTimeout(() => (clicked = false), 120);
+
 		if (!running) return;
 
 		const now = performance.now();
 
-		if (prepRef.current && !targetVisible) {
+		if (prepFlag && !targetVisible) {
 			message = 'Ранний клик! Попробуй ещё раз.';
 			prep = false;
-			prepRef.current = false;
-			if (timerRef.current) {
-				window.clearTimeout(timerRef.current);
-				timerRef.current = null;
+			prepFlag = false;
+			if (timerId) {
+				window.clearTimeout(timerId);
+				timerId = null;
 			}
 			const penalty = 800;
 			recordTime(penalty);
@@ -127,11 +129,11 @@
 			return;
 		}
 
-		if (targetVisible && shownAtRef.current) {
-			const delta = Math.max(0, Math.round(now - shownAtRef.current));
+		if (targetVisible && shownAt) {
+			const delta = Math.max(0, Math.round(now - shownAt));
 			recordTime(delta);
 			targetVisible = false;
-			shownAtRef.current = null;
+			shownAt = null;
 			scheduleNextOrStop();
 			return;
 		}
@@ -150,14 +152,14 @@
 			running = false;
 			message = 'Серия завершена';
 			prep = false;
-			prepRef.current = false;
+			prepFlag = false;
 			targetVisible = false;
 		} else if (autoRestart) {
 			setTimeout(() => startRound(), 700);
 		} else {
 			message = 'Нажми "Далее" чтобы продолжить';
 			prep = false;
-			prepRef.current = false;
+			prepFlag = false;
 		}
 	}
 
@@ -183,7 +185,7 @@
 			<div class="relative flex h-56 items-center justify-center rounded-lg bg-gray-100 p-4">
 				<button
 					on:click={handleClick}
-					class={`reaction-area h-full w-full rounded-lg focus:outline-none ${targetVisible ? 'active' : ''}`}
+					class={`reaction-area h-full w-full rounded-lg focus:outline-none ${targetVisible ? 'active' : ''} ${clicked ? 'clicked' : ''}`}
 					aria-label="reaction-area"
 					style={`background: ${targetVisible ? 'linear-gradient(90deg,yellow,orange)' : 'transparent'}; cursor: ${running ? 'pointer' : 'default'}`}
 				>
@@ -201,12 +203,12 @@
 
 			<div class="mt-3 flex gap-2">
 				{#if !running}
-					<button class="rounded bg-blue-600 px-3 py-2 text-white" on:click={handleStart}
-						>Старт</button
-					>
+					<button class="rounded bg-blue-600 px-3 py-2 text-white" on:click={handleStart}>
+						Старт
+					</button>
 				{/if}
 				{#if running}
-					<button class="rounded bg-red-600 px-3 py-2 text-white" on:click={stopAll}>Стоп</button>
+					<button class="rounded bg-red-600 px-3 py-2 text-white" on:click={stopAll}> Стоп </button>
 				{/if}
 				{#if !running}
 					<button
@@ -214,10 +216,12 @@
 						on:click={() => {
 							startRound();
 							running = true;
-						}}>Далее</button
+						}}
 					>
+						Далее
+					</button>
 				{/if}
-				<button class="rounded bg-gray-300 px-3 py-2" on:click={resetAll}>Сброс</button>
+				<button class="rounded bg-gray-300 px-3 py-2" on:click={resetAll}> Сброс </button>
 			</div>
 		</div>
 
